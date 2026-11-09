@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 120" width="300" height="120">
+  <defs>
+    <style>
+      .dot {
+        transform-box: fill-box;
+        transform-origin: center;
+        animation: bounce 1.5s ease-in-out infinite;
+      }
+      .dot-1 { animation-delay: 0s; }
+      .dot-2 { animation-delay: -0.5s; }
+      .dot-3 { animation-delay: -1.0s; }
+      @keyframes bounce {
+        0%, 100% {
+          transform: translateY(0);
+          opacity: 0.4;
+        }
+        50% {
+          transform: translateY(-24px);
+          opacity: 1.0;
+        }
+      }
+    </style>
+  </defs>
+  <circle class="dot dot-1" cx="70" cy="70" r="18" fill="#6366f1" />
+  <circle class="dot dot-2" cx="150" cy="70" r="18" fill="#06b6d4" />
+  <circle class="dot dot-3" cx="230" cy="70" r="18" fill="#10b981" />
+</svg>

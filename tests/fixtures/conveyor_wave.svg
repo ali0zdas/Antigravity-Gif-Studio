@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 150" width="400" height="150">
+  <defs>
+    <style>
+      .wave-conveyor {
+        animation: conveyorRoll 2s linear infinite;
+      }
+      @keyframes conveyorRoll {
+        0% { transform: translateX(0); }
+        100% { transform: translateX(-200px); }
+      }
+    </style>
+    <clipPath id="stageClip">
+      <rect x="0" y="0" width="400" height="150" />
+    </clipPath>
+  </defs>
+  <g clip-path="url(#stageClip)">
+    <path class="wave-conveyor" d="M 0 80 Q 50 40 100 80 T 200 80 T 300 80 T 400 80 T 500 80 T 600 80 L 600 150 L 0 150 Z" fill="#0284c7" />
+  </g>
+</svg>

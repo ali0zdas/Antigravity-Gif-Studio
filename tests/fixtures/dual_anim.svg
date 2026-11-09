@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200" width="300" height="200">
+  <defs>
+    <style>
+      .css-pulse {
+        transform-box: fill-box;
+        transform-origin: center;
+        animation: scaleLoop 2s ease-in-out infinite;
+      }
+      @keyframes scaleLoop {
+        0%, 100% { transform: scale(0.9); }
+        50% { transform: scale(1.1); }
+      }
+    </style>
+  </defs>
+  <!-- CSS Animated Circle -->
+  <circle class="css-pulse" cx="80" cy="100" r="40" fill="#3b82f6" />
+
+  <!-- SMIL Animated Rect -->
+  <rect x="180" y="60" width="80" height="80" fill="#ec4899" rx="8">
+    <animate attributeName="opacity" values="0.3;1;0.3" dur="2s" repeatCount="indefinite" />
+  </rect>
+</svg>

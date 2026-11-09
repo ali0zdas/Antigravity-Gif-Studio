@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 800" width="200" height="800">
+  <defs>
+    <style>
+      .elevator {
+        animation: dropRise 3s ease-in-out infinite;
+      }
+      @keyframes dropRise {
+        0%, 100% { transform: translateY(50px); }
+        50% { transform: translateY(700px); }
+      }
+    </style>
+  </defs>
+  <rect width="200" height="800" fill="#18181b" />
+  <rect class="elevator" x="40" y="0" width="120" height="60" rx="10" fill="#e11d48" />
+</svg>

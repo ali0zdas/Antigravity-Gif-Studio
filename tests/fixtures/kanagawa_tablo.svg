@@ -1,0 +1,130 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400" width="100%" height="100%">
+  <defs>
+    <style>
+      @keyframes waveSwell1 {
+        0% { transform: translateX(0); }
+        50% { transform: translateX(-40px) translateY(-5px); }
+        100% { transform: translateX(-80px); }
+      }
+      @keyframes waveSwell2 {
+        0% { transform: translateX(0); }
+        50% { transform: translateX(30px) translateY(3px); }
+        100% { transform: translateX(60px); }
+      }
+      @keyframes crestSurge {
+        0% { transform: rotate(0deg) scale(1); }
+        50% { transform: rotate(-3.5deg) scale(1.05) translateY(-4px); }
+        100% { transform: rotate(0deg) scale(1); }
+      }
+      @keyframes boatMotion {
+        0% { transform: rotate(-6deg) translateY(0); }
+        50% { transform: rotate(5deg) translateY(8px); }
+        100% { transform: rotate(-6deg) translateY(0); }
+      }
+      @keyframes sprayDrift {
+        0% { opacity: 0; transform: translateY(-10px) scale(0.6); }
+        50% { opacity: 1; transform: translateY(0) scale(1.1); }
+        100% { opacity: 0; transform: translateY(10px) scale(0.5); }
+      }
+      .anim-swell1 { animation: waveSwell1 3.5s ease-in-out infinite alternate; }
+      .anim-swell2 { animation: waveSwell2 2.6s ease-in-out infinite alternate; }
+      .anim-crest { animation: crestSurge 2.8s ease-in-out infinite; transform-origin: 140px 290px; }
+      .anim-boat { animation: boatMotion 3.5s ease-in-out infinite; transform-origin: 390px 270px; }
+      .anim-spray { animation: sprayDrift 2s ease-in-out infinite; }
+    </style>
+    
+    <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#edd8b7"/>
+      <stop offset="60%" stop-color="#fef8ec"/>
+      <stop offset="100%" stop-color="#e2cb9f"/>
+    </linearGradient>
+
+    <linearGradient id="oceanDeep" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0a1d30"/>
+      <stop offset="50%" stop-color="#113659"/>
+      <stop offset="100%" stop-color="#1d5684"/>
+    </linearGradient>
+
+    <clipPath id="frameClip">
+      <rect x="25" y="25" width="550" height="350" rx="4"/>
+    </clipPath>
+  </defs>
+
+  <!-- Ornate Wooden Outer Picture Frame -->
+  <rect x="0" y="0" width="600" height="400" fill="#2b1608" rx="6"/>
+  <rect x="12" y="12" width="576" height="376" fill="#1b0e05" rx="4"/>
+  <!-- Gold Inlay Border -->
+  <rect x="20" y="20" width="560" height="360" fill="none" stroke="#c59b27" stroke-width="2.5"/>
+
+  <!-- Inner Painting Artwork -->
+  <g clip-path="url(#frameClip)">
+    <!-- Sky / Parchment Canvas -->
+    <rect x="25" y="25" width="550" height="350" fill="url(#skyGrad)"/>
+
+    <!-- Traditional Red Hanko Seal / Hokusai Stamp -->
+    <rect x="45" y="45" width="26" height="56" fill="#be2a1d" rx="2"/>
+    <rect x="49" y="49" width="18" height="48" fill="none" stroke="#fef8ec" stroke-width="1.2"/>
+    <line x1="58" y1="56" x2="58" y2="88" stroke="#fef8ec" stroke-width="1.5"/>
+
+    <!-- Mount Fuji (Snow-Capped Volcano in Distant Horizon) -->
+    <polygon points="280,260 330,165 342,165 392,260" fill="#33475b"/>
+    <!-- Fuji Snow Cap -->
+    <polygon points="318,188 330,165 342,165 354,188 346,198 336,184 326,198" fill="#ffffff"/>
+
+    <!-- Background Swell Layer (Dark Navy) -->
+    <path class="anim-swell1" fill="url(#oceanDeep)" opacity="0.9"
+          d="M0,250 Q110,215 220,255 T440,245 T660,255 L660,390 L0,390 Z"/>
+
+    <!-- Traditional Oar Boat (Skiff riding the waves) -->
+    <g class="anim-boat">
+      <path d="M330,270 Q390,265 450,250 Q405,278 350,278 Z" fill="#c68a4c" stroke="#6e3f19" stroke-width="1.8"/>
+      <circle cx="370" cy="265" r="2.5" fill="#222"/>
+      <circle cx="388" cy="261" r="2.5" fill="#222"/>
+      <circle cx="406" cy="257" r="2.5" fill="#222"/>
+      <circle cx="424" cy="253" r="2.5" fill="#222"/>
+    </g>
+
+    <!-- Foreground Rolling Wave -->
+    <path class="anim-swell2" fill="#164e73"
+          d="M-60,280 Q80,240 230,290 T510,270 T700,295 L700,390 L-60,390 Z"/>
+    
+    <!-- White Water Foam Crest on Foreground Swell -->
+    <path class="anim-swell2" fill="#ffffff" opacity="0.95"
+          d="M-60,280 Q80,237 230,290 T510,267 T700,295 L700,302 T510,275 T230,297 L-60,287 Z"/>
+
+    <!-- The Great Wave of Kanagawa (Towering Left Claw Wave) -->
+    <g class="anim-crest">
+      <!-- Deep Blue Giant Wave Base -->
+      <path d="M25,380 C60,340 105,290 135,220 C160,160 190,105 265,115 C240,135 215,165 220,195 C190,212 165,255 180,305 C140,330 90,355 25,380 Z" fill="#082032"/>
+      
+      <!-- Cyan / Indigo Mid-Tone Shading -->
+      <path d="M50,380 C90,330 130,270 152,205 C170,160 205,135 245,142 C220,165 200,195 205,225 C175,250 155,298 168,340 Z" fill="#1f6595" opacity="0.85"/>
+
+      <!-- Hokusai Foam Claws & Talons -->
+      <path d="M265,115 C278,96 292,106 280,122 C272,118 265,115 265,115 Z" fill="#ffffff"/>
+      <path d="M252,112 C262,90 274,100 260,118 Z" fill="#ffffff"/>
+      <path d="M234,115 C238,88 252,95 240,124 Z" fill="#ffffff"/>
+      <path d="M210,128 C194,108 214,100 222,122 Z" fill="#ffffff"/>
+      <path d="M180,148 C158,128 178,120 190,144 Z" fill="#ffffff"/>
+      <path d="M156,176 C132,158 146,144 165,168 Z" fill="#ffffff"/>
+
+      <!-- Breaking White Wave Lip Pattern -->
+      <path d="M265,115 C245,128 225,152 220,182 C198,200 174,242 186,290" fill="none" stroke="#ffffff" stroke-width="4.5" stroke-dasharray="10 3.5"/>
+
+      <!-- Ocean Spray Water Droplets -->
+      <g class="anim-spray">
+        <circle cx="286" cy="118" r="3" fill="#ffffff"/>
+        <circle cx="300" cy="138" r="2.5" fill="#ffffff"/>
+        <circle cx="290" cy="156" r="2" fill="#ffffff"/>
+        <circle cx="262" cy="86" r="2.5" fill="#ffffff"/>
+        <circle cx="245" cy="78" r="2" fill="#ffffff"/>
+        <circle cx="204" cy="94" r="2.8" fill="#ffffff"/>
+        <circle cx="168" cy="115" r="2.2" fill="#ffffff"/>
+      </g>
+    </g>
+
+    <!-- Canvas Inner Depth Shadows -->
+    <rect x="25" y="25" width="550" height="8" fill="#000000" opacity="0.15"/>
+    <rect x="25" y="25" width="8" height="350" fill="#000000" opacity="0.15"/>
+  </g>
+</svg>
