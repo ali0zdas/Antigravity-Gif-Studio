@@ -1,0 +1,36 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "antigravity-gif-studio",
+  "displayName": "Antigravity GIF Studio",
+  "version": "1.0.0",
+  "description": "Generate, preview, and export mathematically seamless looping animated SVGs and high-quality GIFs with zero external API key requirements. Bundles local MCP tools, an LLM design skill, and an interactive Generative UI preview widget.",
+  "logo": "assets/logo.svg",
+  "category": "Design",
+  "suggestedPrompts": [
+    "Create a seamless looping SVG animation of a glowing neon cyber-portal and render it to GIF",
+    "Generate an interactive preview widget for this animated SVG wave effect with speed and transparency controls",
+    "Optimize and convert my animated SVG graphic into a lightweight looping GIF with custom FPS",
+    "Design a rhythmic geometric loading spinner SVG and export both SVG and GIF formats"
+  ],
+  "author": {
+    "name": "Antigravity Studio Team",
+    "email": "studio@antigravity.ai",
+    "url": "https://antigravity.ai"
+  },
+  "homepage": "https://github.com/antigravity/antigravity-gif-studio",
+  "repository": "https://github.com/antigravity/antigravity-gif-studio",
+  "license": "MIT",
+  "keywords": [
+    "gif",
+    "svg",
+    "animation",
+    "loop",
+    "keyframes",
+    "smil",
+    "mcp",
+    "generative-ui",
+    "image-processing",
+    "motion-graphics",
+    "antigravity"
+  ]
+}

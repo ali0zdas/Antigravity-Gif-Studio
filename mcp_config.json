@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "antigravity-gif-studio": {
+      "command": "node",
+      "args": [
+        "${PLUGIN_ROOT}/mcp/index.js"
+      ]
+    }
+  }
+}
