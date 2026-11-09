@@ -1,0 +1,26 @@
+{
+  "name": "antigravity-gif-studio",
+  "version": "1.0.0",
+  "description": "Antigravity GIF Studio plugin bundling Skill, MCP Server, and Generative UI templates",
+  "main": "mcp/index.js",
+  "scripts": {
+    "start": "node mcp/index.js",
+    "test": "node tests/run_tests.js"
+  },
+  "keywords": [
+    "antigravity",
+    "gif",
+    "svg",
+    "mcp",
+    "animation"
+  ],
+  "author": "Antigravity Studio Team",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "gifenc": "^1.0.3",
+    "omggif": "^1.0.10",
+    "pngjs": "^7.0.0",
+    "puppeteer-core": "^23.0.0"
+  }
+}
