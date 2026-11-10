@@ -16,7 +16,7 @@ Antigravity GIF Studio is an official Antigravity Plugin bundling a Skill, an MC
 
 ## Code Layout
 ```
-g:\Github\Antigravity Gif Studio\
+.
 ├── plugin.json                     # Plugin manifest (agent-plugins.org schema)
 ├── mcp_config.json                 # MCP server registration (${PLUGIN_ROOT}/mcp/index.js)
 ├── package.json                    # Node.js project manifest & dependencies
@@ -31,7 +31,10 @@ g:\Github\Antigravity Gif Studio\
 │   └── widget-template.js          # Standalone Generative UI widget generator
 ├── skills/
 │   └── gif-studio/
-│       └── SKILL.md                # Skill instructions for looping SVG & preview widget
+│       ├── SKILL.md                # Skill instructions for looping SVG & preview widget
+│       └── references/
+│           ├── canonicals.md       # Canonical animation motifs & SVG recipes
+│           └── motion_math.md      # Mathematical loop harmonic formulas
 ├── tests/
 │   ├── run_tests.js                # E2E test runner
 │   ├── tier1_features.test.js      # Tier 1: Feature coverage

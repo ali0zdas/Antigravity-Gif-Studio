@@ -130,7 +130,7 @@ Renders an animated SVG string or file into a high-quality, looping animated GIF
 | `width` | number | No | `400` | Output width in pixels (defaults to SVG `viewBox` width or 400). |
 | `height` | number | No | `400` | Output height in pixels (defaults to SVG `viewBox` height or 400). |
 | `transparent` | boolean | No | `true` | If `true`, renders transparent pixels using 1-bit alpha with `dispose: 2`. |
-| `quality` | number | No | `10` | Quantization sampling factor ($1 \dots 30$, where lower yields higher visual fidelity). |
+| `maxColors` | number | No | `256` | Maximum palette color count for quantization ($2 \le \text{maxColors} \le 256$). |
 | `outputPath` | string | No | `null` | Destination file path. If omitted, GIF data is returned as Base64 in `gifBase64`. |
 
 #### Response Schema
