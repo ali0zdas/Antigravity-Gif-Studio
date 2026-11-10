@@ -4,6 +4,7 @@
  * Produces a self-contained single-file HTML artifact embedding the SVG,
  * interactive playback controls, timeline scrubber, 0.25x-3x speed slider,
  * background mode switcher, and inlined gifenc for instant offline client-side re-encoding.
+ * Optimized for token economy and clean iframe rendering in Antigravity.
  */
 
 'use strict';
@@ -22,7 +23,7 @@ const { sanitizeSvg } = require('./renderer.js');
  * @param {number} [options.fps=20] - Default playback / re-encoding FPS
  * @param {string} [options.title='Antigravity GIF Studio Preview'] - Display title
  * @param {string} [options.outputPath] - File path to save standalone HTML
- * @returns {Promise<Object>} Object containing html string and optional outputPath
+ * @returns {Promise<Object>} Object containing metadata and optional html string
  */
 async function generatePreviewWidget(options = {}) {
   let {
@@ -81,64 +82,60 @@ async function generatePreviewWidget(options = {}) {
   <title>${escapeHtml(title)}</title>
   <style>
     :root {
-      --bg-dark: #0a0b10;
-      --card-bg: #12141c;
-      --card-border: #232736;
-      --accent: #6366f1;
+      --card-bg: var(--card, #12141c);
+      --card-border: var(--border, #232736);
+      --accent: var(--primary, #6366f1);
       --accent-hover: #4f46e5;
       --accent-cyan: #06b6d4;
-      --text-main: #f1f5f9;
-      --text-muted: #94a3b8;
+      --text-main: var(--foreground, #f1f5f9);
+      --text-muted: var(--muted-foreground, #94a3b8);
       --text-sub: #64748b;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      background-color: var(--bg-dark);
+      background-color: transparent;
       color: var(--text-main);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 1.5rem;
+      padding: 0.75rem;
     }
     .container {
       width: 100%;
-      max-width: 900px;
+      max-width: 820px;
       display: flex;
       flex-direction: column;
-      gap: 1.25rem;
+      gap: 0.75rem;
     }
     .header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding-bottom: 0.75rem;
+      padding-bottom: 0.5rem;
       border-bottom: 1px solid var(--card-border);
     }
     .brand {
       display: flex;
       align-items: center;
-      gap: 0.75rem;
+      gap: 0.5rem;
     }
     .brand-icon {
-      width: 28px;
-      height: 28px;
+      width: 22px;
+      height: 22px;
       fill: none;
       stroke: var(--accent-cyan);
       stroke-width: 2;
     }
     .brand-title {
-      font-size: 1.15rem;
+      font-size: 1rem;
       font-weight: 600;
-      letter-spacing: -0.02em;
-      background: linear-gradient(135deg, #fff 30%, var(--accent-cyan));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.01em;
+      color: var(--text-main);
     }
     .badge {
       font-size: 0.75rem;
-      padding: 0.25rem 0.6rem;
+      padding: 0.2rem 0.5rem;
       border-radius: 9999px;
       background: rgba(99, 102, 241, 0.15);
       color: #818cf8;
@@ -148,27 +145,27 @@ async function generatePreviewWidget(options = {}) {
       position: relative;
       background: var(--card-bg);
       border: 1px solid var(--card-border);
-      border-radius: 12px;
+      border-radius: 10px;
       overflow: hidden;
       display: flex;
       flex-direction: column;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
     }
     .stage-toolbar {
       position: absolute;
-      top: 12px;
-      right: 12px;
+      top: 8px;
+      right: 8px;
       display: flex;
-      gap: 6px;
+      gap: 4px;
       z-index: 10;
     }
     .tool-btn {
       background: rgba(18, 20, 28, 0.85);
       border: 1px solid var(--card-border);
       color: var(--text-muted);
-      border-radius: 6px;
-      padding: 6px 10px;
-      font-size: 0.75rem;
+      border-radius: 5px;
+      padding: 4px 8px;
+      font-size: 0.7rem;
       cursor: pointer;
       backdrop-filter: blur(8px);
       transition: all 0.15s ease;
@@ -179,20 +176,21 @@ async function generatePreviewWidget(options = {}) {
       background: rgba(99, 102, 241, 0.25);
     }
     .stage-viewport {
-      min-height: 400px;
+      min-height: 260px;
+      max-height: 380px;
       display: flex;
       align-items: center;
       justify-content: center;
       position: relative;
-      padding: 2rem;
+      padding: 1rem;
     }
     .bg-checker {
       background-image: linear-gradient(45deg, #181a24 25%, transparent 25%),
                         linear-gradient(-45deg, #181a24 25%, transparent 25%),
                         linear-gradient(45deg, transparent 75%, #181a24 75%),
                         linear-gradient(-45deg, transparent 75%, #181a24 75%);
-      background-size: 20px 20px;
-      background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+      background-size: 16px 16px;
+      background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
       background-color: #10121a;
     }
     .bg-dark { background-color: #0b0c10; }
@@ -200,7 +198,7 @@ async function generatePreviewWidget(options = {}) {
 
     #svg-stage {
       max-width: 100%;
-      max-height: 480px;
+      max-height: 360px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -208,27 +206,27 @@ async function generatePreviewWidget(options = {}) {
     #svg-stage svg {
       width: 100%;
       height: 100%;
-      max-height: 460px;
+      max-height: 340px;
       display: block;
     }
     .controls {
       background: var(--card-bg);
       border: 1px solid var(--card-border);
-      border-radius: 12px;
-      padding: 1.25rem;
+      border-radius: 10px;
+      padding: 0.85rem;
       display: flex;
       flex-direction: column;
-      gap: 1.25rem;
+      gap: 0.75rem;
     }
     .scrubber-row {
       display: flex;
       align-items: center;
-      gap: 1rem;
+      gap: 0.75rem;
     }
     .timeline-slider {
       flex: 1;
       -webkit-appearance: none;
-      height: 6px;
+      height: 5px;
       background: #2a2e3f;
       border-radius: 3px;
       outline: none;
@@ -236,18 +234,18 @@ async function generatePreviewWidget(options = {}) {
     }
     .timeline-slider::-webkit-slider-thumb {
       -webkit-appearance: none;
-      width: 16px;
-      height: 16px;
+      width: 14px;
+      height: 14px;
       border-radius: 50%;
       background: var(--accent-cyan);
-      box-shadow: 0 0 10px var(--accent-cyan);
+      box-shadow: 0 0 8px var(--accent-cyan);
       cursor: pointer;
     }
     .time-display {
       font-variant-numeric: tabular-nums;
-      font-size: 0.85rem;
+      font-size: 0.75rem;
       color: var(--text-muted);
-      min-width: 110px;
+      min-width: 95px;
       text-align: right;
     }
     .control-row {
@@ -255,25 +253,25 @@ async function generatePreviewWidget(options = {}) {
       justify-content: space-between;
       align-items: center;
       flex-wrap: wrap;
-      gap: 1rem;
+      gap: 0.5rem;
     }
     .btn-group {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
+      gap: 0.4rem;
     }
     .btn {
       background: #1e2230;
       color: var(--text-main);
       border: 1px solid var(--card-border);
-      padding: 0.5rem 1rem;
-      border-radius: 8px;
-      font-size: 0.85rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
       font-weight: 500;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
-      gap: 0.4rem;
+      gap: 0.3rem;
       transition: all 0.15s ease;
     }
     .btn:hover {
@@ -293,16 +291,16 @@ async function generatePreviewWidget(options = {}) {
       display: flex;
       background: #181b26;
       padding: 2px;
-      border-radius: 8px;
+      border-radius: 6px;
       border: 1px solid var(--card-border);
     }
     .speed-pill {
       background: transparent;
       border: none;
       color: var(--text-muted);
-      padding: 4px 8px;
-      font-size: 0.75rem;
-      border-radius: 6px;
+      padding: 3px 6px;
+      font-size: 0.7rem;
+      border-radius: 4px;
       cursor: pointer;
     }
     .speed-pill.active {
@@ -311,37 +309,37 @@ async function generatePreviewWidget(options = {}) {
     }
     .export-bar {
       border-top: 1px solid var(--card-border);
-      padding-top: 1rem;
+      padding-top: 0.6rem;
       display: flex;
       justify-content: space-between;
       align-items: center;
       flex-wrap: wrap;
-      gap: 1rem;
+      gap: 0.5rem;
     }
     .select-label {
-      font-size: 0.8rem;
+      font-size: 0.75rem;
       color: var(--text-sub);
       display: flex;
       align-items: center;
-      gap: 0.4rem;
+      gap: 0.3rem;
     }
     select {
       background: #1a1d29;
       color: var(--text-main);
       border: 1px solid var(--card-border);
-      padding: 4px 8px;
-      border-radius: 6px;
-      font-size: 0.8rem;
+      padding: 3px 6px;
+      border-radius: 5px;
+      font-size: 0.75rem;
     }
     .encode-progress-wrap {
       display: none;
       flex-direction: column;
-      gap: 4px;
+      gap: 3px;
       width: 100%;
     }
     .progress-bar-bg {
       width: 100%;
-      height: 6px;
+      height: 5px;
       background: #1e2230;
       border-radius: 3px;
       overflow: hidden;
@@ -353,7 +351,7 @@ async function generatePreviewWidget(options = {}) {
       transition: width 0.1s ease;
     }
     .progress-text {
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       color: var(--text-muted);
       display: flex;
       justify-content: space-between;
@@ -421,11 +419,11 @@ async function generatePreviewWidget(options = {}) {
             FPS:
             <select id="fps-select">
               <option value="10">10 fps</option>
+              <option value="12">12 fps</option>
               <option value="15">15 fps</option>
               <option value="20" ${fps === 20 ? 'selected' : ''}>20 fps</option>
               <option value="24" ${fps === 24 ? 'selected' : ''}>24 fps</option>
               <option value="30" ${fps === 30 ? 'selected' : ''}>30 fps</option>
-              <option value="60">60 fps</option>
             </select>
           </label>
         </div>
@@ -479,7 +477,6 @@ async function generatePreviewWidget(options = {}) {
       const progressLabel = document.getElementById('progress-label');
       const progressPct = document.getElementById('progress-pct');
 
-      // Background mode toggles
       document.getElementById('btn-bg-checker').onclick = () => setBg('checker');
       document.getElementById('btn-bg-dark').onclick = () => setBg('dark');
       document.getElementById('btn-bg-light').onclick = () => setBg('light');
@@ -603,7 +600,14 @@ async function generatePreviewWidget(options = {}) {
         progressWrap.style.display = 'flex';
         reencodeBtn.disabled = true;
 
-        const { GIFEncoder, quantize, applyPalette } = window.gifenc;
+        const { GIFEncoder, quantize, applyPalette } = window.gifenc || {};
+        if (!GIFEncoder) {
+          alert('GIFEncoder engine not initialized.');
+          progressWrap.style.display = 'none';
+          reencodeBtn.disabled = false;
+          return;
+        }
+
         const gif = GIFEncoder();
 
         const allEls = svgEl.querySelectorAll('*');
@@ -634,6 +638,8 @@ async function generatePreviewWidget(options = {}) {
               cloneEl.style.transform = comp.transform;
               cloneEl.style.transformOrigin = comp.transformOrigin;
               cloneEl.style.opacity = comp.opacity;
+              cloneEl.style.fill = comp.fill;
+              cloneEl.style.stroke = comp.stroke;
               cloneEl.style.animation = 'none';
             }
             cloneEl.removeAttribute('data-bake-id');
@@ -662,9 +668,11 @@ async function generatePreviewWidget(options = {}) {
           ctx.drawImage(img, 0, 0, width, height);
 
           const imgData = ctx.getImageData(0, 0, width, height);
-          const palette = quantize(imgData.data, 256, { format: 'rgba4444', oneBitAlpha: currentBgMode === 'checker' });
-          const index = applyPalette(imgData.data, palette, 'rgba4444');
-          const transparentIndex = currentBgMode === 'checker' ? palette.findIndex(p => p[3] === 0) : -1;
+          const isTransparent = currentBgMode === 'checker';
+          const format = isTransparent ? 'rgba4444' : 'rgb565';
+          const palette = quantize(imgData.data, 256, { format, oneBitAlpha: isTransparent });
+          const index = applyPalette(imgData.data, palette, format);
+          const transparentIndex = isTransparent ? palette.findIndex(p => p[3] === 0) : -1;
 
           gif.writeFrame(index, width, height, {
             palette,
@@ -700,6 +708,10 @@ async function generatePreviewWidget(options = {}) {
 </html>`;
 
   const result = {
+    success: true,
+    title,
+    durationSeconds: Number(duration.toFixed(3)),
+    fps,
     html
   };
 
@@ -711,6 +723,7 @@ async function generatePreviewWidget(options = {}) {
     }
     fs.writeFileSync(resolvedPath, html, 'utf8');
     result.outputPath = resolvedPath;
+    result.fileSizeBytes = Buffer.byteLength(html, 'utf8');
   }
 
   return result;

@@ -34,7 +34,7 @@ async function optimizeGif(options = {}) {
     inputBase64,
     outputPath,
     maxColors = 128,
-    lossy = 0,
+    lossy = 20,
     frameDeduplication = true
   } = options;
 

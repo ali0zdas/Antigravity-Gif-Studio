@@ -119,11 +119,6 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
               type: 'integer',
               default: 256,
               description: 'Maximum palette color count for quantization (2-256).'
-            },
-            quality: {
-              type: 'integer',
-              default: 10,
-              description: 'Quantization quality setting (1-30, lower is better).'
             }
           },
           required: ['svg']

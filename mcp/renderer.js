@@ -1,10 +1,12 @@
 /**
- * Antigravity GIF Studio — Core SVG-to-GIF Rendering Engine (Remediated)
+ * Antigravity GIF Studio — Core SVG-to-GIF Rendering Engine (High-Fidelity)
  * 
  * Uses Chromium compositor element screenshotting via Puppeteer CDP,
  * stepping Web Animations API and SMIL native timelines accurately,
  * decoding PNG frames with pngjs into raw RGBA buffers,
- * and quantizing/encoding frames into an animated GIF via gifenc.
+ * quantizing/encoding frames into an animated GIF via gifenc,
+ * enforcing zero network requests, hybrid color fidelity (rgb565 / rgba4444),
+ * and performing automated seam discontinuity validation.
  */
 
 'use strict';
@@ -16,7 +18,7 @@ const { PNG } = require('pngjs');
 const { GIFEncoder, quantize, applyPalette } = require('gifenc');
 const { findChrome } = require('./chrome-finder.js');
 
-// Cached browser instance with concurrency launch lock and idle timeout management
+// Cached browser instance with launch lock and idle management
 let sharedBrowser = null;
 let launchPromise = null;
 let idleTimer = null;
@@ -48,17 +50,24 @@ async function getBrowser() {
   launchPromise = (async () => {
     try {
       const executablePath = findChrome();
+      const launchArgs = [
+        '--disable-gpu',
+        '--disable-dev-shm-usage',
+        '--no-first-run',
+        '--no-default-browser-check',
+        '--disable-background-networking',
+        '--disable-sync'
+      ];
+
+      // Only add --no-sandbox if running under root on Linux/Docker
+      if (process.platform === 'linux' && process.getuid && process.getuid() === 0) {
+        launchArgs.push('--no-sandbox', '--disable-setuid-sandbox');
+      }
+
       const browser = await puppeteer.launch({
         executablePath,
         headless: 'new',
-        args: [
-          '--no-sandbox',
-          '--disable-gpu',
-          '--disable-dev-shm-usage',
-          '--disable-setuid-sandbox',
-          '--no-first-run',
-          '--no-default-browser-check'
-        ]
+        args: launchArgs
       });
       sharedBrowser = browser;
       return browser;
@@ -119,7 +128,7 @@ function parseSvgDimensions(svgText) {
 }
 
 /**
- * Detects animation duration in seconds from CSS @keyframes or SMIL.
+ * Fast heuristic detection of SVG duration from text.
  */
 function detectSvgDuration(svgText) {
   const matches = [...svgText.matchAll(/([0-9.]+)\s*s\b/gi)].map(m => parseFloat(m[1]));
@@ -132,15 +141,18 @@ function detectSvgDuration(svgText) {
 }
 
 /**
- * Sanitizes SVG code to neutralize potential XSS scripts while preserving graphic markup.
+ * Sanitizes SVG code to neutralize potential XSS scripts, foreignObjects,
+ * and external network fetches while preserving graphic markup.
  */
 function sanitizeSvg(svgText) {
   let clean = svgText;
   clean = clean.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+  clean = clean.replace(/<foreignObject\b[^<]*(?:(?!<\/foreignObject>)<[^<]*)*<\/foreignObject>/gi, '');
   clean = clean.replace(/\son[a-zA-Z]+\s*=\s*"[^"]*"/gi, '');
   clean = clean.replace(/\son[a-zA-Z]+\s*=\s*'[^']*'/gi, '');
   clean = clean.replace(/\son[a-zA-Z]+\s*=\s*[^\s>]+/gi, '');
   clean = clean.replace(/javascript\s*:/gi, '');
+  clean = clean.replace(/@import\s+[^;]+;/gi, '');
   return clean;
 }
 
@@ -151,13 +163,12 @@ function sanitizeSvg(svgText) {
  * @param {string} [options.svg] - Raw SVG markup or path to .svg file on disk
  * @param {string} [options.inputPath] - File path to .svg file on disk
  * @param {string} [options.outputPath] - File path where resulting GIF is saved
- * @param {number} [options.fps=15] - Target frames per second (1-60)
+ * @param {number} [options.fps=20] - Target frames per second (1-60)
  * @param {number} [options.duration] - Loop duration in seconds (> 0)
  * @param {number} [options.width] - Output width in pixels
  * @param {number} [options.height] - Output height in pixels
- * @param {boolean} [options.transparent=true] - Whether background is transparent
+ * @param {boolean} [options.transparent=false] - Whether background is transparent
  * @param {number} [options.maxColors=256] - Palette quantization size (2-256)
- * @param {number} [options.quality=10] - Quantization quality
  * @returns {Promise<Object>} Render result metadata
  */
 async function renderSvgToGif(options = {}) {
@@ -169,9 +180,8 @@ async function renderSvgToGif(options = {}) {
     duration,
     width,
     height,
-    transparent = true,
-    maxColors = 256,
-    quality = 10
+    transparent = false,
+    maxColors = 256
   } = options;
 
   // 1. Resolve and validate SVG source (markup or file path)
@@ -195,22 +205,13 @@ async function renderSvgToGif(options = {}) {
     throw new Error('Input must be a valid SVG document containing an <svg> root element.');
   }
 
-  // 2. Validate duration and FPS
-  if (duration !== undefined && duration !== null) {
-    if (typeof duration !== 'number' || duration <= 0 || isNaN(duration)) {
-      throw new Error(`Animation duration must be a positive number. Got: ${duration}`);
-    }
-  } else {
-    duration = detectSvgDuration(trimmed);
-  }
-
+  // 2. Validate FPS and Colors
   fps = Number(fps);
   if (isNaN(fps) || fps <= 0) {
     fps = 15;
   }
   fps = Math.max(1, Math.min(60, Math.round(fps)));
 
-  // Clamp maxColors
   maxColors = Number(maxColors);
   if (isNaN(maxColors) || maxColors < 2) maxColors = 2;
   if (maxColors > 256) maxColors = 256;
@@ -221,20 +222,23 @@ async function renderSvgToGif(options = {}) {
   width = width ? Math.round(Number(width)) : dims.width;
   height = height ? Math.round(Number(height)) : dims.height;
 
-  // Clamp dimensions within safe system limits
   width = Math.max(1, Math.min(4000, width || 400));
   height = Math.max(1, Math.min(3000, height || 400));
 
   // Sanitize SVG
   const sanitized = sanitizeSvg(trimmed);
 
-  // 4. Connect to Chromium and set up rendering stage
+  // 4. Connect to Chromium with network interception (strict zero-network policy)
   const browser = await getBrowser();
   const page = await browser.newPage();
 
   try {
+    await page.setRequestInterception(true);
+    page.on('request', req => req.abort());
+
     await page.setViewport({ width, height, deviceScaleFactor: 1 });
-    const bgStyle = transparent ? 'background: transparent;' : 'background: #ffffff;';
+    const bgStyle = transparent ? 'background: transparent;' : 'background: #000000;';
+
     await page.setContent(`<!DOCTYPE html>
 <html>
 <head>
@@ -272,16 +276,47 @@ async function renderSvgToGif(options = {}) {
       throw new Error('Failed to locate rendering stage element inside Chromium.');
     }
 
+    // 5. Accurate in-browser duration determination via Web Animations API
+    if (duration !== undefined && duration !== null) {
+      duration = Number(duration);
+      if (isNaN(duration) || duration <= 0) {
+        throw new Error(`Animation duration must be a positive number. Got: ${duration}`);
+      }
+    } else {
+      const computedDuration = await page.evaluate(() => {
+        const anims = document.getAnimations({ subtree: true });
+        if (!anims || anims.length === 0) return 0;
+        let maxTime = 0;
+        anims.forEach(a => {
+          const t = a.effect ? a.effect.getComputedTiming() : null;
+          if (t && t.duration) {
+            let durSec = Number(t.duration) / 1000;
+            const dir = t.direction || 'normal';
+            // If alternate direction is used, full cycle is 2x duration
+            if (dir === 'alternate' || dir === 'alternate-reverse') {
+              durSec = durSec * 2;
+            }
+            if (durSec > maxTime) maxTime = durSec;
+          }
+        });
+        return maxTime;
+      });
+
+      duration = computedDuration > 0 ? computedDuration : detectSvgDuration(trimmed);
+    }
+
     const totalFrames = Math.max(1, Math.round(duration * fps));
     const delayMs = Math.round(1000 / fps);
 
     const gif = GIFEncoder();
+    const quantFormat = transparent ? 'rgba4444' : 'rgb565';
+    let firstFramePngData = null;
 
     for (let i = 0; i < totalFrames; i++) {
       const tSec = i / fps;
       const tMs = tSec * 1000;
 
-      // Advance both SMIL and Web Animations timelines natively in Chromium
+      // Advance DOM animations synchronously
       await page.evaluate((sec, ms) => {
         const el = document.querySelector('#stage > svg') || document.querySelector('#stage svg');
         if (el && el.setCurrentTime) {
@@ -294,22 +329,23 @@ async function renderSvgToGif(options = {}) {
         });
       }, tSec, tMs);
 
-      // Screenshot stage element directly from Chromium compositor
       const shot = await stageEl.screenshot({
         omitBackground: transparent,
         type: 'png'
       });
 
-      // Decode PNG directly to raw RGBA buffer
       const png = PNG.sync.read(Buffer.from(shot));
+      if (i === 0) {
+        firstFramePngData = Buffer.from(png.data);
+      }
 
-      // Quantize colors using gifenc NeuQuant/Octree
+      // High-fidelity quantization (rgb565 for zero color banding on opaque scenes)
       const palette = quantize(png.data, maxColors, {
-        format: 'rgba4444',
+        format: quantFormat,
         oneBitAlpha: transparent
       });
 
-      const index = applyPalette(png.data, palette, 'rgba4444');
+      const index = applyPalette(png.data, palette, quantFormat);
       const transparentIndex = transparent ? palette.findIndex(p => p[3] === 0) : -1;
 
       gif.writeFrame(index, width, height, {
@@ -324,12 +360,53 @@ async function renderSvgToGif(options = {}) {
     gif.finish();
     const gifBuffer = Buffer.from(gif.bytes());
 
+    // 6. Automated Seam Discontinuity Check (Frame at t=0 vs Frame at t=duration)
+    await page.evaluate((sec, ms) => {
+      const el = document.querySelector('#stage > svg') || document.querySelector('#stage svg');
+      if (el && el.setCurrentTime) {
+        try { el.setCurrentTime(sec); } catch (e) {}
+      }
+      const anims = document.getAnimations({ subtree: true });
+      anims.forEach(a => {
+        a.pause();
+        a.currentTime = ms;
+      });
+    }, duration, duration * 1000);
+
+    const seamShot = await stageEl.screenshot({
+      omitBackground: transparent,
+      type: 'png'
+    });
+    const seamPng = PNG.sync.read(Buffer.from(seamShot));
+
+    let seamDiffCount = 0;
+    const totalPixels = width * height;
+    if (firstFramePngData) {
+      for (let p = 0; p < firstFramePngData.length; p += 4) {
+        const dr = Math.abs(firstFramePngData[p] - seamPng.data[p]);
+        const dg = Math.abs(firstFramePngData[p + 1] - seamPng.data[p + 1]);
+        const db = Math.abs(firstFramePngData[p + 2] - seamPng.data[p + 2]);
+        const da = Math.abs(firstFramePngData[p + 3] - seamPng.data[p + 3]);
+        if (dr + dg + db + da > 24) {
+          seamDiffCount++;
+        }
+      }
+    }
+
+    const seamErrorPercentage = Number(((seamDiffCount / totalPixels) * 100).toFixed(2));
+    const isSeamless = seamErrorPercentage <= 2.5;
+
     const result = {
       success: true,
       frameCount: totalFrames,
-      fileSizeBytes: gifBuffer.length,
+      durationSeconds: Number(duration.toFixed(3)),
+      fps,
       width,
-      height
+      height,
+      fileSizeBytes: gifBuffer.length,
+      seamErrorPercentage,
+      isSeamless,
+      quantizationFormat: quantFormat
     };
 
     if (outputPath) {
