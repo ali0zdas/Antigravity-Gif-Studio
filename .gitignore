@@ -6,6 +6,10 @@ TASK_MEMORY.md
 # Sample / Generated Media Outputs
 /kanagawa_tablo.*
 /kanagawa*
+/night_seascape*
+/*.svg
+!assets/**
+!tests/fixtures/**
 *.gif
 !assets/**
 !tests/fixtures/**
@@ -30,6 +34,8 @@ temp/
 tmp/
 *.tmp
 *.log
+mcp/bundle.js
+*.bundle.js
 
 # Package Manager Logs
 npm-debug.log*
