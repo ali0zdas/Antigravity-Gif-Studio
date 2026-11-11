@@ -25,6 +25,12 @@ const {
 const { renderSvgToGif } = require('./renderer.js');
 const { generatePreviewWidget } = require('./widget-template.js');
 const { optimizeGif } = require('./optimizer.js');
+const { startLocalBridge } = require('./bridge.js');
+
+// Start lightweight localhost bridge for Generative UI webview file export
+try {
+  startLocalBridge();
+} catch (e) {}
 
 /**
  * Custom StdioServerTransport subclass that is resilient against
