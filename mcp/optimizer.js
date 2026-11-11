@@ -177,23 +177,47 @@ async function optimizeGif(options = {}) {
     }
   }
 
-  // 5. Re-encode optimized GIF
+  // 5. Re-encode optimized GIF using stable unified global palette
   const gif = GIFEncoder();
+
+  // Sample across frames to derive master unified palette
+  const sampleIntervalCount = Math.min(10, processedFrames.length);
+  const sampleStep = Math.max(1, Math.floor(processedFrames.length / sampleIntervalCount));
+  const samplePixelsPerFrame = Math.max(100, Math.floor(100000 / sampleIntervalCount));
+  const totalFramePixels = width * height;
+  const stride = Math.max(1, Math.floor(totalFramePixels / samplePixelsPerFrame));
+  const sampleBuffer = new Uint8Array(sampleIntervalCount * samplePixelsPerFrame * 4);
+  let sampleOffset = 0;
+  let hasAnyTransparency = false;
+
+  for (let s = 0; s < sampleIntervalCount; s++) {
+    const frame = processedFrames[s * sampleStep];
+    if (frame.transparent) hasAnyTransparency = true;
+    for (let p = 0; p < totalFramePixels && sampleOffset + 4 <= sampleBuffer.length; p += stride) {
+      const idx = p * 4;
+      if (frame.rgba[idx + 3] < 250) hasAnyTransparency = true;
+      sampleBuffer[sampleOffset++] = frame.rgba[idx];
+      sampleBuffer[sampleOffset++] = frame.rgba[idx + 1];
+      sampleBuffer[sampleOffset++] = frame.rgba[idx + 2];
+      sampleBuffer[sampleOffset++] = frame.rgba[idx + 3];
+    }
+  }
+
+  const optFormat = hasAnyTransparency ? 'rgba4444' : 'rgb565';
+  const globalPalette = quantize(sampleBuffer.subarray(0, sampleOffset), colorsLimit, {
+    format: optFormat,
+    oneBitAlpha: hasAnyTransparency
+  });
+  const transparentIndex = hasAnyTransparency ? globalPalette.findIndex(p => p[3] === 0) : -1;
 
   for (let i = 0; i < processedFrames.length; i++) {
     const frame = processedFrames[i];
-    const palette = quantize(frame.rgba, colorsLimit, {
-      format: 'rgba4444',
-      oneBitAlpha: frame.transparent
-    });
-
-    const index = applyPalette(frame.rgba, palette, 'rgba4444');
-    const transparentIndex = palette.findIndex(p => p[3] === 0);
+    const index = applyPalette(frame.rgba, globalPalette, optFormat);
 
     gif.writeFrame(index, width, height, {
-      palette,
+      palette: i === 0 ? globalPalette : null,
       delay: frame.delayMs,
-      transparent: frame.transparent && transparentIndex >= 0,
+      transparent: hasAnyTransparency && transparentIndex >= 0,
       transparentIndex: Math.max(0, transparentIndex),
       dispose: frame.disposal
     });

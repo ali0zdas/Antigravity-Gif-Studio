@@ -311,6 +311,7 @@ async function renderSvgToGif(options = {}) {
     const gif = GIFEncoder();
     const quantFormat = transparent ? 'rgba4444' : 'rgb565';
     let firstFramePngData = null;
+    const capturedPngs = [];
 
     for (let i = 0; i < totalFrames; i++) {
       const tSec = i / fps;
@@ -338,18 +339,42 @@ async function renderSvgToGif(options = {}) {
       if (i === 0) {
         firstFramePngData = Buffer.from(png.data);
       }
+      capturedPngs.push(png);
+    }
 
-      // High-fidelity quantization (rgb565 for zero color banding on opaque scenes)
-      const palette = quantize(png.data, maxColors, {
-        format: quantFormat,
-        oneBitAlpha: transparent
-      });
+    // Build unified global palette across multi-frame temporal samples to eliminate jitter/flicker
+    const sampleStep = Math.max(1, Math.floor(capturedPngs.length / 10));
+    const sampleFrames = [];
+    for (let i = 0; i < capturedPngs.length; i += sampleStep) {
+      sampleFrames.push(capturedPngs[i]);
+    }
+    const samplePixelLimit = 250000;
+    const pixelsPerFrame = Math.max(100, Math.floor(samplePixelLimit / sampleFrames.length));
+    const combinedSamples = new Uint8Array(sampleFrames.length * pixelsPerFrame * 4);
+    let sampleOffset = 0;
 
-      const index = applyPalette(png.data, palette, quantFormat);
-      const transparentIndex = transparent ? palette.findIndex(p => p[3] === 0) : -1;
+    for (const frame of sampleFrames) {
+      const totalPixels = width * height;
+      const stride = Math.max(1, Math.floor(totalPixels / pixelsPerFrame));
+      for (let p = 0; p < totalPixels && sampleOffset + 4 <= combinedSamples.length; p += stride) {
+        const srcIdx = p * 4;
+        combinedSamples[sampleOffset++] = frame.data[srcIdx];
+        combinedSamples[sampleOffset++] = frame.data[srcIdx + 1];
+        combinedSamples[sampleOffset++] = frame.data[srcIdx + 2];
+        combinedSamples[sampleOffset++] = frame.data[srcIdx + 3];
+      }
+    }
 
+    const globalPalette = quantize(combinedSamples.subarray(0, sampleOffset), maxColors, {
+      format: quantFormat,
+      oneBitAlpha: transparent
+    });
+    const transparentIndex = transparent ? globalPalette.findIndex(p => p[3] === 0) : -1;
+
+    for (let i = 0; i < capturedPngs.length; i++) {
+      const index = applyPalette(capturedPngs[i].data, globalPalette, quantFormat);
       gif.writeFrame(index, width, height, {
-        palette,
+        palette: i === 0 ? globalPalette : null,
         delay: delayMs,
         transparent: transparent && transparentIndex >= 0,
         transparentIndex: Math.max(0, transparentIndex),
