@@ -564,8 +564,14 @@ describe('Tier 5 - Adversarial Coverage Hardening Suite', () => {
     });
 
     it('T5-6.4: Sub-frame delta accumulation preserves canvas state without frame tearing', async () => {
-      // Read kanagawa_tablo.gif which uses disposal method 0/1 subframes
-      const pocGif = fs.readFileSync('kanagawa_tablo.gif');
+      let pocGif;
+      if (fs.existsSync('kanagawa_tablo.gif')) {
+        pocGif = fs.readFileSync('kanagawa_tablo.gif');
+      } else {
+        const svg = readText('tests/fixtures/kanagawa_tablo.svg');
+        const rendered = await renderSvgToGif({ svg, duration: 1.0, fps: 5, width: 200, height: 133 });
+        pocGif = rendered.gifBuffer || Buffer.from(rendered.gifBase64, 'base64');
+      }
       const optRes = await optimizeGif({
         inputGif: pocGif,
         maxColors: 128,
