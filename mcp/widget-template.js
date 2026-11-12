@@ -765,6 +765,9 @@ async function generatePreviewWidget(options = {}) {
       </div>
 
       <div class="modal-foot">
+        <button class="btn" id="modal-btn-save-as" style="display: none; background: rgba(99, 102, 241, 0.2); border-color: rgba(99, 102, 241, 0.45); color: #a5b4fc;">
+          📁 Farklı Kaydet...
+        </button>
         <button class="btn" id="modal-btn-open-explorer" style="display: none; background: rgba(34, 197, 94, 0.15); border-color: rgba(34, 197, 94, 0.35); color: #4ade80;">
           📂 Klasörde Göster
         </button>
@@ -959,6 +962,7 @@ async function generatePreviewWidget(options = {}) {
       const modalSavedBanner = document.getElementById('modal-saved-banner');
       const modalSavedPath = document.getElementById('modal-saved-path');
       const modalBtnOpenExplorer = document.getElementById('modal-btn-open-explorer');
+      const modalBtnSaveAs = document.getElementById('modal-btn-save-as');
 
       const badgeParamSpeed = document.getElementById('badge-param-speed');
       const badgeParamFps = document.getElementById('badge-param-fps');
@@ -997,6 +1001,7 @@ async function generatePreviewWidget(options = {}) {
         modalPreviewBox.style.display = 'none';
         if (modalSavedBanner) modalSavedBanner.style.display = 'none';
         if (modalBtnOpenExplorer) modalBtnOpenExplorer.style.display = 'none';
+        if (modalBtnSaveAs) modalBtnSaveAs.style.display = 'none';
         modalBtnStart.style.display = 'inline-block';
         modalBtnStart.disabled = false;
         modalBtnCancel.style.display = 'inline-block';
@@ -1224,9 +1229,40 @@ async function generatePreviewWidget(options = {}) {
               }).catch(() => {});
             };
           }
+          if (modalBtnSaveAs) {
+            modalBtnSaveAs.style.display = 'inline-flex';
+            modalBtnSaveAs.onclick = async () => {
+              modalBtnSaveAs.disabled = true;
+              const origText = modalBtnSaveAs.textContent;
+              modalBtnSaveAs.textContent = '⏳ Seçiliyor...';
+              try {
+                const saveAsResp = await fetch(bridgeEndpoint + '/save-as', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'image/gif',
+                    'X-Filename': encodeURIComponent(targetFilename)
+                  },
+                  body: gifBytes
+                });
+                if (saveAsResp.ok) {
+                  const saveAsData = await saveAsResp.json();
+                  if (saveAsData.success && saveAsData.savedPath) {
+                    savedPath = saveAsData.savedPath;
+                    if (modalSavedPath) modalSavedPath.textContent = savedPath;
+                  }
+                }
+              } catch (e) {
+                console.log('Save As error:', e.message);
+              } finally {
+                modalBtnSaveAs.disabled = false;
+                modalBtnSaveAs.textContent = origText;
+              }
+            };
+          }
         } else {
           if (modalSavedBanner) modalSavedBanner.style.display = 'none';
           if (modalBtnOpenExplorer) modalBtnOpenExplorer.style.display = 'none';
+        if (modalBtnSaveAs) modalBtnSaveAs.style.display = 'none';
         }
 
         // Setup HTML5 DownloadURL dragout for direct Windows desktop/folder drop

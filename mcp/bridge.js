@@ -117,6 +117,56 @@ function startLocalBridge(port = DEFAULT_PORT, shouldUnref = true) {
       return;
     }
 
+    // Save GIF via native Windows SaveFileDialog
+    if (url.pathname === '/save-as' && req.method === 'POST') {
+      const chunks = [];
+      req.on('data', chunk => chunks.push(chunk));
+      req.on('end', () => {
+        try {
+          const buffer = Buffer.concat(chunks);
+          let filename = req.headers['x-filename'] || 'antigravity-studio-export.gif';
+          try {
+            filename = decodeURIComponent(filename);
+          } catch(e) {}
+
+          filename = filename.replace(/[/\\?%*:|"<>]/g, '_');
+          if (!filename.toLowerCase().endsWith('.gif')) {
+            filename += '.gif';
+          }
+
+          const initialDir = getDefaultPicturesDir().replace(/'/g, "''");
+          const safeFilename = filename.replace(/'/g, "''");
+          const psScript = `Add-Type -AssemblyName System.Windows.Forms; $dlg = New-Object System.Windows.Forms.SaveFileDialog; $dlg.InitialDirectory = '${initialDir}'; $dlg.FileName = '${safeFilename}'; $dlg.Filter = 'GIF Image (*.gif)|*.gif|All Files (*.*)|*.*'; $dlg.Title = 'GIF Kaydet (Antigravity GIF Studio)'; if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output $dlg.FileName }`;
+
+          exec(`powershell -NoProfile -STA -Command "${psScript}"`, { windowsHide: true }, (err, stdout) => {
+            if (err) {
+              res.writeHead(500, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ success: false, error: err.message }));
+              return;
+            }
+            const selectedPath = (stdout || '').trim();
+            if (!selectedPath) {
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ success: false, cancelled: true }));
+              return;
+            }
+            fs.writeFileSync(selectedPath, buffer);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+              success: true,
+              savedPath: selectedPath,
+              filename: path.basename(selectedPath),
+              fileSizeBytes: buffer.length
+            }));
+          });
+        } catch (err) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: err.message }));
+        }
+      });
+      return;
+    }
+
     // Reveal file in Windows Explorer
     if (url.pathname === '/open-folder' && req.method === 'POST') {
       const chunks = [];
