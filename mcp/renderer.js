@@ -30,7 +30,7 @@ function scheduleIdleClose() {
       try { await sharedBrowser.close(); } catch (e) {}
       sharedBrowser = null;
     }
-  }, 8000);
+  }, 60000); // 60s idle timeout so long animations aren't killed mid-render
   if (idleTimer.unref) idleTimer.unref();
 }
 
@@ -448,7 +448,7 @@ async function renderSvgToGif(options = {}) {
 
     return result;
   } finally {
-    await page.close();
+    try { await page.close(); } catch (e) {}
   }
 }
 
