@@ -22,15 +22,17 @@ const { findChrome } = require('./chrome-finder.js');
 let sharedBrowser = null;
 let launchPromise = null;
 let idleTimer = null;
+let activeRenders = 0;
 
 function scheduleIdleClose() {
   if (idleTimer) clearTimeout(idleTimer);
+  if (activeRenders > 0) return;
   idleTimer = setTimeout(async () => {
-    if (sharedBrowser) {
+    if (sharedBrowser && activeRenders === 0) {
       try { await sharedBrowser.close(); } catch (e) {}
       sharedBrowser = null;
     }
-  }, 60000); // 60s idle timeout so long animations aren't killed mid-render
+  }, 60000); // 60s idle timeout when no renders are active
   if (idleTimer.unref) idleTimer.unref();
 }
 
@@ -129,8 +131,19 @@ function parseSvgDimensions(svgText) {
 
 /**
  * Fast heuristic detection of SVG duration from text.
+ * Prioritizes explicit animation/SMIL duration attributes before generic time tokens.
  */
 function detectSvgDuration(svgText) {
+  const targeted = [
+    ...[...svgText.matchAll(/\bdur\s*=\s*["']\s*([0-9.]+)\s*(ms|s)\s*["']/gi)],
+    ...[...svgText.matchAll(/animation(?:-duration)?\s*:[^;{}]*?\b([0-9.]+)\s*(ms|s)\b/gi)]
+  ].map(m => (m[2].toLowerCase() === 'ms' ? parseFloat(m[1]) / 1000 : parseFloat(m[1])))
+   .filter(d => d > 0);
+
+  if (targeted.length > 0) {
+    return Math.max(...targeted);
+  }
+
   const matches = [...svgText.matchAll(/([0-9.]+)\s*s\b/gi)].map(m => parseFloat(m[1]));
   const msMatches = [...svgText.matchAll(/([0-9.]+)\s*ms\b/gi)].map(m => parseFloat(m[1]) / 1000);
   const all = matches.concat(msMatches).filter(d => d > 0);
@@ -142,16 +155,20 @@ function detectSvgDuration(svgText) {
 
 /**
  * Sanitizes SVG code to neutralize potential XSS scripts, foreignObjects,
- * and external network fetches while preserving graphic markup.
+ * embedded active tags, inline event handlers, and external network fetches.
  */
 function sanitizeSvg(svgText) {
   let clean = svgText;
   clean = clean.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
   clean = clean.replace(/<foreignObject\b[^<]*(?:(?!<\/foreignObject>)<[^<]*)*<\/foreignObject>/gi, '');
+  clean = clean.replace(/<(iframe|object|embed)\b[^<]*(?:(?!<\/\1>)<[^<]*)*<\/\1>/gi, '');
+  clean = clean.replace(/<(iframe|object|embed)\b[^>]*\/?>/gi, '');
   clean = clean.replace(/\son[a-zA-Z]+\s*=\s*"[^"]*"/gi, '');
   clean = clean.replace(/\son[a-zA-Z]+\s*=\s*'[^']*'/gi, '');
   clean = clean.replace(/\son[a-zA-Z]+\s*=\s*[^\s>]+/gi, '');
   clean = clean.replace(/javascript\s*:/gi, '');
+  clean = clean.replace(/data\s*:\s*text\/html/gi, 'data:text/plain');
+  clean = clean.replace(/\b(xlink:)?href\s*=\s*(["'])\s*https?:\/\/[^"']*\2/gi, '$1href=$2#$2');
   clean = clean.replace(/@import\s+[^;]+;/gi, '');
   return clean;
 }
@@ -229,6 +246,7 @@ async function renderSvgToGif(options = {}) {
   const sanitized = sanitizeSvg(trimmed);
 
   // 4. Connect to Chromium with network interception (strict zero-network policy)
+  activeRenders++;
   const browser = await getBrowser();
   const page = await browser.newPage();
 
@@ -306,6 +324,10 @@ async function renderSvgToGif(options = {}) {
     }
 
     const totalFrames = Math.max(1, Math.round(duration * fps));
+    const maxFrames = Math.max(1, Number(process.env.GIF_STUDIO_MAX_FRAMES) || 600);
+    if (totalFrames > maxFrames) {
+      throw new Error(`Requested animation exceeds maximum frame limit (${totalFrames} > ${maxFrames}). Reduce duration or FPS.`);
+    }
     const delayMs = Math.round(1000 / fps);
 
     const gif = GIFEncoder();
@@ -378,7 +400,7 @@ async function renderSvgToGif(options = {}) {
         delay: delayMs,
         transparent: transparent && transparentIndex >= 0,
         transparentIndex: Math.max(0, transparentIndex),
-        dispose: 2
+        dispose: transparent ? 2 : 1
       });
     }
 
@@ -448,6 +470,8 @@ async function renderSvgToGif(options = {}) {
 
     return result;
   } finally {
+    activeRenders = Math.max(0, activeRenders - 1);
+    scheduleIdleClose();
     try { await page.close(); } catch (e) {}
   }
 }

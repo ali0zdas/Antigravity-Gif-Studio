@@ -3,7 +3,8 @@
     "antigravity-gif-studio": {
       "command": "node",
       "args": [
-        "${PLUGIN_ROOT}/mcp/index.js"
+        "${PLUGIN_ROOT}/mcp/index.js",
+        "--data_dir=${PLUGIN_DATA}"
       ]
     }
   }

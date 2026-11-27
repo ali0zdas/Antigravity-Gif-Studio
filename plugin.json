@@ -2,8 +2,8 @@
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "antigravity-gif-studio",
   "displayName": "Antigravity GIF Studio",
-  "version": "1.0.0",
-  "description": "Generate, preview, and export mathematically seamless looping animated SVGs and high-quality GIFs with zero external API key requirements.",
+  "version": "2.0.0",
+  "description": "Generate, preview, and export mathematically seamless looping animated SVGs and high-quality GIFs via an interactive MCP App with zero external API keys.",
   "logo": "assets/logo.svg",
   "category": "Design",
   "suggestedPrompts": [

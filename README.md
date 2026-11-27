@@ -20,7 +20,7 @@ Traditional LLM-generated animated SVGs and GIFs suffer from recurring flaws:
 
 Antigravity GIF Studio resolves these challenges through a unified tri-part architecture:
 1. **Local MCP Server**: Headless Chrome/Edge DevTools Protocol (CDP) time-stepping and `gifenc` NeuQuant quantization for frame-accurate offline rendering.
-2. **Generative UI Preview Widget**: Standalone, single-file interactive HTML preview artifacts supporting live playback, timeline scrubbing, variable speed (0.25x–3x), background toggles, and instant client-side GIF re-encoding.
+2. **Interactive MCP App (`ui://gif-studio/app.html`)**: Self-contained `@modelcontextprotocol/ext-apps` UI rendered natively inline, in the Antigravity side pane (`aux_pane`), or full-page from the left sidebar (`global`) — featuring live SVG playback, timeline scrubbing, variable speed (`0.25x–3x`), background toggles, server-powered GIF rendering/optimization, and native Save/Reveal actions.
 3. **Motion Design Skill (`skills/gif-studio/SKILL.md`)**: A specialized domain skill guiding LLMs through mathematical loop closure formulas, transform anchoring, and color discipline.
 
 ---
@@ -80,14 +80,15 @@ When installing into an Antigravity workspace, configure `mcp_config.json` at yo
     "antigravity-gif-studio": {
       "command": "node",
       "args": [
-        "${PLUGIN_ROOT}/mcp/index.js"
+        "${PLUGIN_ROOT}/mcp/index.js",
+        "--data_dir=${PLUGIN_DATA}"
       ]
     }
   }
 }
 ```
 
-`${PLUGIN_ROOT}` is automatically resolved by the Antigravity plugin manager to the directory where the plugin is cloned or installed.
+`${PLUGIN_ROOT}` is automatically resolved by the Antigravity plugin manager to the directory where the plugin is cloned or installed, and `${PLUGIN_DATA}` provides persistent storage for studio settings and animation history.
 
 ### 2. Standalone Development Installation
 To run or develop standalone:
@@ -96,22 +97,25 @@ To run or develop standalone:
 git clone https://github.com/antigravity/antigravity-gif-studio.git
 cd "antigravity-gif-studio"
 npm install
+npm run build:ui
 ```
 
 ---
 
-## MCP Tools Specification
+## MCP Tools & UI Resource Specification
 
-The Antigravity GIF Studio MCP server communicates over standard input/output (`stdio`) using JSON-RPC 2.0 and exposes three core tools:
+The Antigravity GIF Studio MCP server communicates over standard input/output (`stdio`) using JSON-RPC 2.0, exposes the `ui://gif-studio/app.html` (`text/html;profile=mcp-app`) resource, and provides the following core tools:
 
 ```
-┌────────────────────────────────────────────────────────┐
-│             Antigravity GIF Studio MCP                 │
-├──────────────────────────┬─────────────────────────────┤
-│  render_svg_to_gif       │ Headless SVG-to-GIF render  │
-│  generate_preview_widget │ Generative UI HTML preview  │
-│  optimize_gif            │ Palette reduction & shrink  │
-└──────────────────────────┴─────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                Antigravity GIF Studio MCP                   │
+├──────────────────────────┬──────────────────────────────────┤
+│  open_gif_studio         │ Interactive MCP App (pane/global)│
+│  render_svg_to_gif       │ Headless SVG-to-GIF render       │
+│  generate_preview_widget │ Inline MCP App + HTML fallback   │
+│  optimize_gif            │ Palette reduction & compression  │
+│  app_* (visibility:app)  │ Asset cache, save, settings      │
+└──────────────────────────┴──────────────────────────────────┘
 ```
 
 ---
@@ -129,7 +133,7 @@ Renders an animated SVG string or file into a high-quality, looping animated GIF
 | `duration` | number | No | `2.0` | Master animation loop duration in seconds ($0.1 \le \text{duration} \le 60.0$). |
 | `width` | number | No | `400` | Output width in pixels (defaults to SVG `viewBox` width or 400). |
 | `height` | number | No | `400` | Output height in pixels (defaults to SVG `viewBox` height or 400). |
-| `transparent` | boolean | No | `true` | If `true`, renders transparent pixels using 1-bit alpha with `dispose: 2`. |
+| `transparent` | boolean | No | `false` | If `true`, renders transparent pixels using 1-bit alpha (`rgba4444`). `false` uses richer `rgb565` on `#000000`. |
 | `maxColors` | number | No | `256` | Maximum palette color count for quantization ($2 \le \text{maxColors} \le 256$). |
 | `outputPath` | string | No | `null` | Destination file path. If omitted, GIF data is returned as Base64 in `gifBase64`. |
 
@@ -332,6 +336,8 @@ node tests/run_tests.js
 - **Tier 2 (Boundary & Corner Cases)**: Tests minimum/maximum FPS (1 vs 60), sub-second durations, extreme aspect ratios, and empty/invalid SVGs.
 - **Tier 3 (Cross-Feature Combinations)**: Tests render followed by optimization, transparent GIF re-quantization, and multi-element harmonic loops.
 - **Tier 4 (Real-World Workloads)**: End-to-end verification using the included Hokusai Great Wave benchmark (`kanagawa_tablo.svg` to `kanagawa_tablo.gif`).
+- **Tier 5 (Adversarial Hardening)**: Concurrency, invalid payloads, alpha stress, and XSS sanitization.
+- **Tier 6 (MCP App & Bug Fixes)**: Verifies `ui://gif-studio/app.html`, `aux_pane`/`global` entrypoints, `app_*` server tools, persistent `--data_dir`, lossy overflow clamping, and `sanitizeSvg`.
 
 ### Proof-of-Concept Asset Verification
 To render and verify the included Great Wave proof-of-concept asset:

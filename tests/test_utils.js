@@ -294,9 +294,10 @@ async function spawnMcpServer(options = {}) {
     throw new Error(`MCP server entry point not found at: ${serverPath}`);
   }
 
-  const child = spawn(process.execPath, [serverPath], {
+  const extraArgs = Array.isArray(options.args) ? options.args : [];
+  const child = spawn(process.execPath, [serverPath, ...extraArgs], {
     stdio: ['pipe', 'pipe', 'pipe'],
-    env: { ...process.env, NODE_ENV: 'test' }
+    env: { ...process.env, ...(options.env || {}), NODE_ENV: 'test' }
   });
 
   let messageId = 1;
@@ -371,8 +372,11 @@ async function spawnMcpServer(options = {}) {
   return {
     child,
     initResult,
+    sendRpc,
     listTools: () => sendRpc('tools/list', {}),
     callTool: (name, args) => sendRpc('tools/call', { name, arguments: args }),
+    listResources: () => sendRpc('resources/list', {}),
+    readResource: (uri) => sendRpc('resources/read', { uri }),
     close: () => {
       return new Promise((resolve) => {
         child.kill();

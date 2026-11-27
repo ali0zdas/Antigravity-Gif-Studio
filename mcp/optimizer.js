@@ -169,9 +169,9 @@ async function optimizeGif(options = {}) {
       const data = frame.rgba;
       for (let p = 0; p < data.length; p += 4) {
         if (data[p + 3] > 0) {
-          data[p] = Math.round(data[p] / step) * step;
-          data[p + 1] = Math.round(data[p + 1] / step) * step;
-          data[p + 2] = Math.round(data[p + 2] / step) * step;
+          data[p] = Math.min(255, Math.round(data[p] / step) * step);
+          data[p + 1] = Math.min(255, Math.round(data[p + 1] / step) * step);
+          data[p + 2] = Math.min(255, Math.round(data[p + 2] / step) * step);
         }
       }
     }
@@ -227,8 +227,10 @@ async function optimizeGif(options = {}) {
   let optimizedBuffer = Buffer.from(gif.bytes());
 
   // Guarantee optimized size does not exceed original size
+  let keptOriginal = false;
   if (optimizedBuffer.length > inputBuffer.length) {
     optimizedBuffer = inputBuffer;
+    keptOriginal = true;
   }
 
   const originalBytes = inputBuffer.length;
@@ -239,7 +241,8 @@ async function optimizeGif(options = {}) {
     success: true,
     originalBytes,
     optimizedBytes,
-    savingsPercent
+    savingsPercent,
+    keptOriginal
   };
 
   if (outputPath) {

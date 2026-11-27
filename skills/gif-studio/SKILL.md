@@ -56,7 +56,7 @@ When the user asks to generate, animate, or preview a GIF / SVG:
 
 1. **Author the SVG:** Write the complete SVG markup obeying the Golden Rules above.
 2. **Render the GIF via MCP:**
-   Call `render_svg_to_gif` with the SVG markup and an `outputPath` (e.g., `output.gif` in the workspace).
+   Call `render_svg_to_gif` with the SVG markup and an `outputPath` (e.g., `output.gif` in the workspace). Set `"transparent": true` for stickers/icons, or `"transparent": false` for full scenes using richer `rgb565` color quantization.
    ```json
    {
      "svg": "<svg ...>...</svg>",
@@ -66,22 +66,21 @@ When the user asks to generate, animate, or preview a GIF / SVG:
      "transparent": false
    }
    ```
-3. **Generate the Generative UI Preview Widget:**
-   Call `generate_preview_widget` to output a standalone interactive preview card:
+3. **Open or Update the Interactive GIF Studio MCP App:**
+   Call `open_gif_studio` (opens/updates the live side pane `aux_pane` or `generate_preview_widget` for an inline card) with the SVG and rendered GIF details:
    ```json
    {
      "svg": "<svg ...>...</svg>",
-     "outputPath": "<artifactDir>/preview.html",
+     "gifPath": "my_animation.gif",
      "title": "Animation Title",
      "fps": 20,
-     "duration": 4.0
+     "duration": 4.0,
+     "transparent": false
    }
    ```
-4. **Embed in Chat:**
-   Present the result to the user with clickable file links and embed the preview widget:
-   ```html
-   <agent-embed src="file:///<artifactDir>/preview.html"></agent-embed>
-   ```
+   The MCP App renders natively in Antigravity (no temporary HTML files or `<agent-embed>` tags needed). Calling `open_gif_studio` again with updated SVG markup refreshes the open side pane in place.
+4. **Legacy Fallback (Non-MCP-App Hosts):**
+   If running on a host without MCP App UI support, pass `"outputPath": "<artifactDir>/preview.html"` to `generate_preview_widget` to write a standalone HTML file.
 
 ---
 

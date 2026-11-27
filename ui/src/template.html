@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Antigravity GIF Studio</title>
+  <style>/*__STYLES__*/</style>
+</head>
+<body>
+  <div class="studio-shell">
+    <header class="studio-header">
+      <div class="brand-group">
+        <span class="brand-badge">GS</span>
+        <span id="studio-title" class="studio-title">Antigravity GIF Studio</span>
+      </div>
+      <div class="header-badges">
+        <span id="badge-dims" class="pill" hidden></span>
+        <span id="badge-seam" class="pill" hidden></span>
+        <span id="badge-size" class="pill" hidden></span>
+      </div>
+    </header>
+
+    <div class="toolbar-tabs">
+      <div class="tab-group" role="tablist">
+        <button class="tab-btn active" data-tab="export" type="button">Export &amp; Playback</button>
+        <button class="tab-btn" data-tab="optimize" type="button">Optimize GIF</button>
+        <button class="tab-btn" data-tab="source" type="button">SVG Source</button>
+        <button class="tab-btn" data-tab="history" type="button">History</button>
+      </div>
+      <div class="btn-group">
+        <button class="btn chip active" data-bg="checkerboard" type="button">Checker</button>
+        <button class="btn chip" data-bg="dark" type="button">Dark</button>
+        <button class="btn chip" data-bg="light" type="button">Light</button>
+        <button class="btn chip" data-bg="host" type="button">Host</button>
+      </div>
+    </div>
+
+    <section class="stage-card">
+      <div id="stage-viewport" class="stage-viewport bg-checkerboard">
+        <div id="stage-svg-host" class="stage-svg-host"></div>
+        <img id="stage-gif-preview" class="stage-gif-preview" alt="Rendered GIF Preview" />
+        <div id="stage-empty" class="stage-empty">
+          <strong>No SVG or GIF loaded yet</strong>
+          <span>Ask the agent to generate an animation, paste SVG in the SVG Source tab, or pick an item from History.</span>
+        </div>
+      </div>
+
+      <div class="timeline-bar">
+        <div class="scrubber-row">
+          <input id="scrubber" class="scrubber" type="range" min="0" max="1000" value="0" />
+          <span id="time-readout" class="time-readout">0.00s / 2.00s</span>
+        </div>
+
+        <div class="controls-row">
+          <div class="btn-group">
+            <button id="btn-play" class="btn primary" type="button">Pause</button>
+            <button id="btn-step-back" class="btn chip" type="button" title="Previous frame">&lt;</button>
+            <button id="btn-step-fwd" class="btn chip" type="button" title="Next frame">&gt;</button>
+            <button id="btn-toggle-view" class="btn chip" type="button" hidden>View Rendered GIF</button>
+          </div>
+
+          <div class="btn-group" id="speed-group">
+            <button class="btn chip" data-speed="0.25" type="button">0.25x</button>
+            <button class="btn chip" data-speed="0.5" type="button">0.5x</button>
+            <button class="btn chip active" data-speed="1" type="button">1x</button>
+            <button class="btn chip" data-speed="1.5" type="button">1.5x</button>
+            <button class="btn chip" data-speed="2" type="button">2x</button>
+            <button class="btn chip" data-speed="3" type="button">3x</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div id="status-banner" class="status-banner" hidden>
+      <span id="status-text"></span>
+      <span id="status-path" class="mono"></span>
+    </div>
+
+    <section id="tab-export" class="panel-card">
+      <div class="form-grid">
+        <div class="field">
+          <label for="input-fps">FPS</label>
+          <select id="input-fps" class="select">
+            <option value="10">10 fps</option>
+            <option value="15">15 fps</option>
+            <option value="20" selected>20 fps</option>
+            <option value="24">24 fps</option>
+            <option value="30">30 fps</option>
+            <option value="60">60 fps</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="input-duration">Duration (s)</label>
+          <input id="input-duration" class="input" type="number" step="0.1" min="0.1" max="60" value="2.0" />
+        </div>
+        <div class="field">
+          <label for="input-colors">Max Colors</label>
+          <select id="input-colors" class="select">
+            <option value="16">16 colors</option>
+            <option value="64">64 colors</option>
+            <option value="128">128 colors</option>
+            <option value="256" selected>256 colors</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="input-width">Width (px)</label>
+          <input id="input-width" class="input" type="number" min="1" max="4000" placeholder="Auto" />
+        </div>
+        <div class="field">
+          <label for="input-height">Height (px)</label>
+          <input id="input-height" class="input" type="number" min="1" max="3000" placeholder="Auto" />
+        </div>
+        <div class="field">
+          <label for="input-filename">Filename</label>
+          <input id="input-filename" class="input" type="text" value="antigravity-studio-export.gif" />
+        </div>
+        <label class="checkbox-row">
+          <input id="input-transparent" type="checkbox" />
+          <span>Transparent BG</span>
+        </label>
+      </div>
+
+      <div class="actions-footer">
+        <div class="btn-group">
+          <button id="btn-render-gif" class="btn primary" type="button">Render GIF</button>
+          <button id="btn-save-pictures" class="btn" type="button" disabled>Save to Pictures</button>
+          <button id="btn-save-as" class="btn" type="button" disabled>Save As...</button>
+          <button id="btn-open-folder" class="btn" type="button" disabled>Reveal Folder</button>
+          <button id="btn-open-file" class="btn" type="button" hidden>Open File Tab</button>
+        </div>
+
+        <div class="btn-group">
+          <button id="btn-attach-context" class="btn" type="button" hidden>Attach Settings</button>
+          <button id="btn-send-agent" class="btn" type="button" hidden>Regenerate in Chat</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-optimize" class="panel-card" hidden>
+      <div class="form-grid">
+        <div class="field">
+          <label for="opt-input-path">Input GIF Path (optional if already rendered)</label>
+          <input id="opt-input-path" class="input" type="text" placeholder="e.g. output.gif" />
+        </div>
+        <div class="field">
+          <label for="opt-colors">Target Colors</label>
+          <select id="opt-colors" class="select">
+            <option value="16">16 colors</option>
+            <option value="32">32 colors</option>
+            <option value="64">64 colors</option>
+            <option value="128" selected>128 colors</option>
+            <option value="256">256 colors</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="opt-lossy">Lossy (0-100)</label>
+          <input id="opt-lossy" class="input" type="number" min="0" max="100" value="20" />
+        </div>
+        <label class="checkbox-row">
+          <input id="opt-dedup" type="checkbox" checked />
+          <span>Deduplicate Frames</span>
+        </label>
+      </div>
+
+      <div class="actions-footer">
+        <button id="btn-optimize-gif" class="btn primary" type="button">Optimize GIF</button>
+        <span id="opt-stats" class="pill" hidden></span>
+      </div>
+    </section>
+
+    <section id="tab-source" class="panel-card" hidden>
+      <div class="field">
+        <label for="svg-source-editor">SVG Markup</label>
+        <textarea id="svg-source-editor" class="textarea" placeholder="Paste <svg ...>...</svg> markup here"></textarea>
+      </div>
+      <div class="actions-footer">
+        <button id="btn-apply-svg" class="btn primary" type="button">Apply SVG to Stage</button>
+      </div>
+    </section>
+
+    <section id="tab-history" class="panel-card" hidden>
+      <div class="actions-footer">
+        <span class="history-sub">Recent animations stored on the local MCP server</span>
+        <button id="btn-refresh-history" class="btn chip" type="button">Refresh</button>
+      </div>
+      <div id="history-list" class="history-list"></div>
+    </section>
+  </div>
+
+  <script>/*__SCRIPT__*/</script>
+</body>
+</html>

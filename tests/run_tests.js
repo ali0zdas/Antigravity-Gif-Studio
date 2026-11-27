@@ -47,12 +47,17 @@ const TIER_MAP = {
     id: 5,
     name: 'Tier 5: Adversarial Coverage Hardening',
     file: 'tier5_adversarial.test.js'
+  },
+  6: {
+    id: 6,
+    name: 'Tier 6: MCP Apps & Bug-Fix Regressions',
+    file: 'tier6_mcp_app.test.js'
   }
 };
 
 function parseArgs(args) {
   const options = {
-    tiers: [1, 2, 3, 4, 5],
+    tiers: [1, 2, 3, 4, 5, 6],
     filter: null,
     bail: false,
     verbose: true,
@@ -69,20 +74,20 @@ function parseArgs(args) {
     } else if (arg === '--tier' || arg === '-t') {
       const val = args[++i];
       if (val === 'all') {
-        options.tiers = [1, 2, 3, 4, 5];
+        options.tiers = [1, 2, 3, 4, 5, 6];
       } else {
         const num = parseInt(val, 10);
         if (TIER_MAP[num]) {
           options.tiers = [num];
         } else {
-          console.error(`${colors.red}Unknown tier: "${val}". Valid tiers: 1, 2, 3, 4, 5, all${colors.reset}`);
+          console.error(`${colors.red}Unknown tier: "${val}". Valid tiers: 1, 2, 3, 4, 5, 6, all${colors.reset}`);
           process.exit(1);
         }
       }
-    } else if (/^tier[1-5]$/i.test(arg)) {
+    } else if (/^tier[1-6]$/i.test(arg)) {
       const num = parseInt(arg.replace(/tier/i, ''), 10);
       options.tiers = [num];
-    } else if (/^[1-5]$/.test(arg)) {
+    } else if (/^[1-6]$/.test(arg)) {
       options.tiers = [parseInt(arg, 10)];
     } else if (arg === '--filter' || arg === '-f') {
       options.filter = args[++i];

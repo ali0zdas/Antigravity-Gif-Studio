@@ -1,43 +1,62 @@
 /**
- * Antigravity GIF Studio — Local HTTP Bridge Server
- * 
- * Provides a lightweight localhost loopback bridge for the Generative UI preview widget
- * to bypass webview iframe sandbox restrictions and directly save rendered GIFs
- * to the user's Windows Pictures directory (or custom path) and open in Explorer.
+ * Antigravity GIF Studio — Optional Legacy Local HTTP Bridge Server
+ *
+ * Disabled by default in MCP App mode. Only started when `--legacy-bridge`
+ * is passed for standalone `<agent-embed>` HTML previews.
  */
 
 'use strict';
 
 const http = require('node:http');
-const os = require('node:os');
-const path = require('node:path');
-const fs = require('node:fs');
-const { exec } = require('node:child_process');
+const {
+  getDefaultPicturesDir,
+  saveGifBuffer,
+  saveGifWithDialog,
+  revealInFileManager
+} = require('./os-actions.js');
 
 const DEFAULT_PORT = 37190;
+const MAX_BODY_BYTES = 50 * 1024 * 1024; // 50 MiB limit
 
-/**
- * Returns the default Windows Pictures directory path,
- * falling back to user home directory if not found.
- */
-function getDefaultPicturesDir() {
-  const home = os.homedir();
-  const pictures = path.join(home, 'Pictures');
-  if (fs.existsSync(pictures)) {
-    return pictures;
-  }
-  return home;
+function readRequestBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let totalBytes = 0;
+    let aborted = false;
+
+    req.on('data', (chunk) => {
+      if (aborted) return;
+      totalBytes += chunk.length;
+      if (totalBytes > MAX_BODY_BYTES) {
+        aborted = true;
+        reject(new Error(`Payload exceeds ${MAX_BODY_BYTES} byte limit.`));
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on('end', () => {
+      if (!aborted) resolve(Buffer.concat(chunks));
+    });
+    req.on('error', (err) => {
+      if (!aborted) reject(err);
+    });
+  });
+}
+
+function sendJson(res, statusCode, payload) {
+  res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(payload));
 }
 
 /**
  * Starts the local HTTP bridge on 127.0.0.1.
- * 
+ *
  * @param {number} [port=37190]
+ * @param {boolean} [shouldUnref=true]
  * @returns {http.Server}
  */
 function startLocalBridge(port = DEFAULT_PORT, shouldUnref = true) {
-  const server = http.createServer((req, res) => {
-    // Handle CORS & Chromium Private Network Access (PNA) preflights
+  const server = http.createServer(async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Private-Network', 'true');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -58,154 +77,58 @@ function startLocalBridge(port = DEFAULT_PORT, shouldUnref = true) {
       return;
     }
 
-    // Healthcheck / discovery endpoint
     if (url.pathname === '/ping' && req.method === 'GET') {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
+      sendJson(res, 200, {
         status: 'ok',
         server: 'antigravity-gif-studio-bridge',
         defaultDir: getDefaultPicturesDir()
-      }));
+      });
       return;
     }
 
-    // Static preview server endpoint
-    if (url.pathname === '/preview' && req.method === 'GET') {
-      const artifactPath = path.join('C:\\Users\\HP\\.gemini\\antigravity\\brain\\65dae600-12dd-4b4b-b08a-0385895fe052', 'night_seascape_preview.html');
-      if (fs.existsSync(artifactPath)) {
-        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        fs.createReadStream(artifactPath).pipe(res);
-        return;
-      }
-    }
-
-    // Save GIF directly to Windows Pictures
     if (url.pathname === '/save' && req.method === 'POST') {
-      const chunks = [];
-      req.on('data', chunk => chunks.push(chunk));
-      req.on('end', () => {
-        try {
-          const buffer = Buffer.concat(chunks);
-          let filename = req.headers['x-filename'] || 'antigravity-studio-export.gif';
-          try {
-            filename = decodeURIComponent(filename);
-          } catch(e) {}
-
-          // Sanitize filename
-          filename = filename.replace(/[/\\?%*:|"<>]/g, '_');
-          if (!filename.toLowerCase().endsWith('.gif')) {
-            filename += '.gif';
-          }
-
-          const targetDir = getDefaultPicturesDir();
-          const targetPath = path.join(targetDir, filename);
-
-          fs.writeFileSync(targetPath, buffer);
-
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({
-            success: true,
-            savedPath: targetPath,
-            filename: filename,
-            fileSizeBytes: buffer.length
-          }));
-        } catch (err) {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: false, error: err.message }));
-        }
-      });
+      try {
+        const buffer = await readRequestBody(req);
+        const result = saveGifBuffer(buffer, {
+          filename: req.headers['x-filename']
+        });
+        sendJson(res, 200, result);
+      } catch (err) {
+        sendJson(res, 500, { success: false, error: err.message });
+      }
       return;
     }
 
-    // Save GIF via native Windows SaveFileDialog
     if (url.pathname === '/save-as' && req.method === 'POST') {
-      const chunks = [];
-      req.on('data', chunk => chunks.push(chunk));
-      req.on('end', () => {
-        try {
-          const buffer = Buffer.concat(chunks);
-          let filename = req.headers['x-filename'] || 'antigravity-studio-export.gif';
-          try {
-            filename = decodeURIComponent(filename);
-          } catch(e) {}
-
-          filename = filename.replace(/[/\\?%*:|"<>]/g, '_');
-          if (!filename.toLowerCase().endsWith('.gif')) {
-            filename += '.gif';
-          }
-
-          const initialDir = getDefaultPicturesDir().replace(/'/g, "''");
-          const safeFilename = filename.replace(/'/g, "''");
-          const psScript = `Add-Type -AssemblyName System.Windows.Forms; $dlg = New-Object System.Windows.Forms.SaveFileDialog; $dlg.InitialDirectory = '${initialDir}'; $dlg.FileName = '${safeFilename}'; $dlg.Filter = 'GIF Image (*.gif)|*.gif|All Files (*.*)|*.*'; $dlg.Title = 'GIF Kaydet (Antigravity GIF Studio)'; if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output $dlg.FileName }`;
-
-          exec(`powershell -NoProfile -STA -Command "${psScript}"`, { windowsHide: true }, (err, stdout) => {
-            if (err) {
-              res.writeHead(500, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ success: false, error: err.message }));
-              return;
-            }
-            const selectedPath = (stdout || '').trim();
-            if (!selectedPath) {
-              res.writeHead(200, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ success: false, cancelled: true }));
-              return;
-            }
-            fs.writeFileSync(selectedPath, buffer);
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({
-              success: true,
-              savedPath: selectedPath,
-              filename: path.basename(selectedPath),
-              fileSizeBytes: buffer.length
-            }));
-          });
-        } catch (err) {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: false, error: err.message }));
-        }
-      });
+      try {
+        const buffer = await readRequestBody(req);
+        const result = await saveGifWithDialog(buffer, req.headers['x-filename']);
+        sendJson(res, 200, result);
+      } catch (err) {
+        sendJson(res, 500, { success: false, error: err.message });
+      }
       return;
     }
 
-    // Reveal file in Windows Explorer
     if (url.pathname === '/open-folder' && req.method === 'POST') {
-      const chunks = [];
-      req.on('data', chunk => chunks.push(chunk));
-      req.on('end', () => {
-        try {
-          let targetPath = '';
-          if (chunks.length > 0) {
-            const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
-            targetPath = body.path;
-          }
-          if (!targetPath || !fs.existsSync(targetPath)) {
-            targetPath = getDefaultPicturesDir();
-          }
-
-          if (process.platform === 'win32') {
-            exec(`explorer.exe /select,"${targetPath}"`);
-          } else if (process.platform === 'darwin') {
-            exec(`open -R "${targetPath}"`);
-          } else {
-            exec(`xdg-open "${path.dirname(targetPath)}"`);
-          }
-
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: true, opened: targetPath }));
-        } catch (err) {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: false, error: err.message }));
+      try {
+        const buffer = await readRequestBody(req);
+        let targetPath = '';
+        if (buffer.length > 0) {
+          const body = JSON.parse(buffer.toString('utf8'));
+          targetPath = body.path || '';
         }
-      });
+        sendJson(res, 200, revealInFileManager(targetPath));
+      } catch (err) {
+        sendJson(res, 500, { success: false, error: err.message });
+      }
       return;
     }
 
-    res.writeHead(404, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Not found' }));
+    sendJson(res, 404, { error: 'Not found' });
   });
 
-  server.on('error', err => {
-    // If port is already in use by a parallel MCP instance, fail silently without crash
+  server.on('error', (err) => {
     if (err.code !== 'EADDRINUSE') {
       console.error('Bridge error:', err.message);
     }
@@ -227,6 +150,6 @@ module.exports = {
 };
 
 if (require.main === module) {
-  const server = startLocalBridge(DEFAULT_PORT, false);
+  startLocalBridge(DEFAULT_PORT, false);
   console.log(`Bridge server running on http://127.0.0.1:${DEFAULT_PORT}`);
 }
